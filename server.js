@@ -1,43 +1,48 @@
 require('./tracing');
 
+const pino = require('pino');
+const logger = pino({ level: 'info' });
+
 const express = require('express');
 const app = express();
 
 app.use(express.json());
+app.use(express.static('public'));
 
-// Simple in-memory store for processed event IDs
-// In production this would be a database or Redis
 const processedEvents = new Set();
 
-// Webhook endpoint
+const validEvents = ['order_created', 'order_updated', 'order_cancelled', 'payment_processed', 'payment_failed'];
+
 app.post('/webhook', (req, res) => {
   const payload = req.body;
 
-  // Step 1: Validate the payload
   if (!payload.event || !payload.traveler_id || !payload.event_id) {
-    console.log('Invalid payload:', payload);
+    logger.warn({ payload }, 'Invalid payload: missing required fields');
     return res.status(400).json({ 
       error: 'Missing required fields: event, traveler_id, event_id' 
     });
   }
 
-  // Step 2: Check for duplicate
+  if (!validEvents.includes(payload.event)) {
+    logger.warn({ event: payload.event }, 'Invalid event type');
+    return res.status(400).json({
+      error: `Invalid event type. Must be one of: ${validEvents.join(', ')}`
+    });
+  }
+
   if (processedEvents.has(payload.event_id)) {
-    console.log(`Duplicate event detected: ${payload.event_id} — skipping`);
+    logger.info({ event_id: payload.event_id }, 'Duplicate event detected, skipping');
     return res.status(200).json({ 
       status: 'already_processed', 
       event_id: payload.event_id 
     });
   }
 
-  // Step 3: Record the event ID before processing
   processedEvents.add(payload.event_id);
-  console.log(`Event received: ${payload.event} for traveler ${payload.traveler_id}`);
+  logger.info({ event: payload.event, traveler_id: payload.traveler_id, event_id: payload.event_id }, 'Event received');
 
-  // Step 4: Process asynchronously
   processEvent(payload);
 
-  // Step 5: Respond immediately
   res.status(200).json({ 
     status: 'received', 
     event: payload.event,
@@ -45,32 +50,30 @@ app.post('/webhook', (req, res) => {
   });
 });
 
-// Simulate calling an ERP API after receiving the event
 async function processEvent(payload) {
-  console.log(`Processing event: ${payload.event}...`);
+  logger.info({ event: payload.event, event_id: payload.event_id }, 'Processing event');
 
   try {
     const response = await fetch('https://httpbin.org/post', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        source: 'Elastic',
+        source: 'elastic-observability-demo',
         event: payload.event,
         traveler_id: payload.traveler_id,
         event_id: payload.event_id
       })
     });
 
-    const data = await response.json();
-    console.log(`ERP API call successful for event: ${payload.event_id}`);
+    await response.json();
+    logger.info({ event_id: payload.event_id }, 'ERP API call successful');
 
   } catch (error) {
-    console.log('ERP API call failed:', error.message);
-    // In production: send to dead-letter queue for retry
+    logger.error({ event_id: payload.event_id, error: error.message }, 'ERP API call failed');
   }
 }
 
 const PORT = 3000;
 app.listen(PORT, () => {
-  console.log('Elastic Observability Demo running on port 3000');
+  logger.info({ port: PORT }, 'Elastic Observability Demo running');
 });

@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Elastic Observability Demo</title>
+  <script src="https://unpkg.com/@elastic/apm-rum@5.12.0/dist/bundles/elastic-apm-rum.umd.min.js"></script>
+  <script>
+    elasticApm.init({
+      serviceName: 'elastic-observability-demo-frontend',
+      serverUrl: 'https://my-observability-project-d18c9f.ingest.us-central1.gcp.elastic.cloud:443',
+      serviceVersion: '1.0.0',
+      environment: 'production'
+    });
+  </script>
+  <style>
+    body {
+      font-family: sans-serif;
+      max-width: 600px;
+      margin: 60px auto;
+      padding: 0 20px;
+      background: #0a0a0a;
+      color: #ffffff;
+    }
+    h1 { color: #00bfb3; }
+    button {
+      background: #00bfb3;
+      color: #000;
+      border: none;
+      padding: 12px 24px;
+      margin: 8px 4px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: bold;
+      border-radius: 4px;
+    }
+    button:hover { background: #00a89e; }
+    #log {
+      margin-top: 24px;
+      padding: 16px;
+      background: #1a1a1a;
+      border-radius: 4px;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+  <h1>Elastic Observability Demo</h1>
+  <p>Send webhook events to the backend and watch them appear in Elastic APM.</p>
+
+  <button onclick="sendEvent('order_created')">Order Created</button>
+  <button onclick="sendEvent('order_updated')">Order Updated</button>
+  <button onclick="sendEvent('order_cancelled')">Order Cancelled</button>
+  <button onclick="sendEvent('payment_processed')">Payment Processed</button>
+  <button onclick="sendEvent('payment_failed')">Payment Failed</button>
+
+  <div id="log">Events will appear here...</div>
+
+  <script>
+    let counter = 1;
+
+    async function sendEvent(eventType) {
+      const event_id = `EVT-UI-${Date.now()}-${counter++}`;
+      const payload = {
+        event: eventType,
+        traveler_id: `UI-USER-001`,
+        event_id
+      };
+
+      const logEl = document.getElementById('log');
+      logEl.innerHTML = `Sending ${eventType}...<br>` + logEl.innerHTML;
+
+      try {
+        const res = await fetch('/webhook', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        logEl.innerHTML = `✓ ${eventType} — ${data.status} (${event_id})<br>` + logEl.innerHTML;
+      } catch (err) {
+        logEl.innerHTML = `✗ ${eventType} — ERROR: ${err.message}<br>` + logEl.innerHTML;
+      }
+    }
+  </script>
+</body>
+</html>
