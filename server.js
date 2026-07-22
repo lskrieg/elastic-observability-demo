@@ -1,3 +1,5 @@
+require('./tracing');
+
 const express = require('express');
 const app = express();
 
@@ -52,7 +54,7 @@ async function processEvent(payload) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        source: 'BizAway',
+        source: 'Elastic',
         event: payload.event,
         traveler_id: payload.traveler_id,
         event_id: payload.event_id
@@ -70,5 +72,5 @@ async function processEvent(payload) {
 
 const PORT = 3000;
 app.listen(PORT, () => {
-  console.log(`BizAway webhook server running on port 3000`);
+  console.log('Elastic Observability Demo running on port 3000');
 });
