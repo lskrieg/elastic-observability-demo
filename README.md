@@ -1,48 +1,15 @@
-# Webhook Demo — ERP Integration Prototype
+# Elastic Observability Demo
 
-A Node.js prototype demonstrating a webhook-based integration pattern 
-between an event source and an ERP system.
+A Node.js webhook service instrumented with OpenTelemetry, sending traces 
+and metrics to Elastic Observability (APM).
 
 ## What it does
 
 - Receives webhook events via a POST endpoint
 - Validates incoming payloads
 - Detects and skips duplicate events using idempotency keys
-- Processes events asynchronously so the sender never waits on the ERP
-- Calls an external ERP API and handles success and failure responses
+- Processes events asynchronously so the sender never waits on downstream services
+- Calls an external API and handles success and failure responses
+- Emits distributed traces, metrics, and logs to Elastic via OTLP
 
-## Why these decisions
-
-**Async processing:** The webhook sender receives a 200 response immediately.
-The ERP call happens in the background. This ensures slow ERP response times 
-never block the event source.
-
-**Idempotency:** Each event carries a unique event_id. If the same event 
-arrives twice (common in distributed systems due to retries), it is detected 
-and skipped. The ERP is only called once per event.
-
-**Payload validation:** Invalid payloads are rejected with a 400 before 
-any processing occurs.
-
-## How to run it
-
-Install dependencies:
-npm install
-
-Start the server:
-node server.js
-
-Send a test event:
-curl -X POST http://localhost:3000/webhook \
-  -H "Content-Type: application/json" \
-  -d '{"event": "booking_created", "traveler_id": "T-001", "event_id": "EVT-123"}'
-
-Send the same event again to test idempotency:
-curl -X POST http://localhost:3000/webhook \
-  -H "Content-Type: application/json" \
-  -d '{"event": "booking_created", "traveler_id": "T-001", "event_id": "EVT-123"}'
-
-## Tech stack
-
-- Node.js
-- Express
+## Architecture
